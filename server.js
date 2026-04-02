@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const sanitizeHtml = require('sanitize-html');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -21,8 +22,10 @@ const uploadDir = process.env.PERSIST_DIR
 const storage = multer.diskStorage({
   destination: uploadDir,
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    cb(null, `${Date.now()}${ext}`);
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeExt = allowedExts.includes(ext) ? ext : '.jpg';
+    cb(null, `${Date.now()}${safeExt}`);
   }
 });
 const upload = multer({
@@ -44,7 +47,7 @@ if (process.env.PERSIST_DIR) {
   app.use('/images/uploads', express.static(uploadDir));
 }
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'faitout-secret-change-me',
+  secret: process.env.SESSION_SECRET || (() => { console.warn('⚠️  SESSION_SECRET non défini ! Utilisez une variable d\'environnement en production.'); return require('crypto').randomBytes(32).toString('hex'); })(),
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -277,19 +280,27 @@ app.get('/api/admin/news', requireAuth, (req, res) => {
   res.json(news);
 });
 
+const sanitizeOpts = {
+  allowedTags: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'img'],
+  allowedAttributes: { 'a': ['href', 'target', 'rel'], 'img': ['src', 'alt'] },
+  allowedSchemes: ['http', 'https'],
+};
+
 app.post('/api/admin/news', requireAuth, (req, res) => {
   const { title, content, label, image, date } = req.body;
+  const safeContent = sanitizeHtml(content || '', sanitizeOpts);
   const result = db.prepare(
     'INSERT INTO news (title, content, label, image, date) VALUES (?, ?, ?, ?, ?)'
-  ).run(title, content, label || '', image || '', date || new Date().toISOString().split('T')[0]);
+  ).run(title, safeContent, label || '', image || '', date || new Date().toISOString().split('T')[0]);
   res.json({ id: result.lastInsertRowid });
 });
 
 app.put('/api/admin/news/:id', requireAuth, (req, res) => {
   const { title, content, label, image, date, visible } = req.body;
+  const safeContent = sanitizeHtml(content || '', sanitizeOpts);
   db.prepare(
     'UPDATE news SET title=?, content=?, label=?, image=?, date=?, visible=? WHERE id=?'
-  ).run(title, content, label || '', image || '', date, visible ? 1 : 0, req.params.id);
+  ).run(title, safeContent, label || '', image || '', date, visible ? 1 : 0, req.params.id);
   res.json({ ok: true });
 });
 
@@ -321,7 +332,31 @@ app.post('/api/admin/upload', requireAuth, upload.single('image'), (req, res) =>
 
 // Serve admin page
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+  if (req.session && req.session.authenticated) {
+    return res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+  }
+  res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Administration — Le Faitout</title><link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>:root{--bg:#faf8f4;--bg-alt:#f0ebe3;--text:#2c2a25;--text-light:#6b6560;--primary:#5a7247;--primary-hover:#4a6237;--white:#fff;--border:#e2ddd5;--danger:#c0392b;--radius:8px;}
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+.login-box{max-width:360px;margin:5rem auto;background:var(--white);padding:2.5rem;border-radius:var(--radius);border:1px solid var(--border);}
+.login-box h2{font-size:1.3rem;margin-bottom:1.5rem;text-align:center;}
+.form-group{margin-bottom:1rem;}.form-group label{display:block;font-size:0.85rem;font-weight:500;margin-bottom:0.3rem;color:var(--text-light);}
+.form-group input{width:100%;padding:0.6rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;font-size:0.9rem;background:var(--bg);}
+.form-group input:focus{outline:none;border-color:var(--primary);}
+.btn{display:inline-block;padding:0.6rem 1.4rem;border:none;border-radius:var(--radius);font-family:inherit;font-size:0.9rem;font-weight:500;cursor:pointer;transition:background 0.2s;width:100%;}
+.btn--primary{background:var(--primary);color:var(--white);}.btn--primary:hover{background:var(--primary-hover);}
+.error-msg{color:var(--danger);font-size:0.85rem;margin-top:0.5rem;text-align:center;}.hidden{display:none!important;}</style></head><body>
+<div class="login-box"><h2>Administration</h2><form id="loginForm">
+<div class="form-group"><label for="username">Identifiant</label><input type="text" id="username" name="username" required autocomplete="username"></div>
+<div class="form-group"><label for="password">Mot de passe</label><input type="password" id="password" name="password" required autocomplete="current-password"></div>
+<button type="submit" class="btn btn--primary">Connexion</button>
+<p id="loginError" class="error-msg hidden"></p></form></div>
+<script>document.getElementById('loginForm').addEventListener('submit',async e=>{e.preventDefault();const err=document.getElementById('loginError');err.classList.add('hidden');
+try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('username').value,password:document.getElementById('password').value})});
+if(r.ok){window.location.reload();}else{err.textContent='Identifiants incorrects';err.classList.remove('hidden');}}catch{err.textContent='Erreur de connexion';err.classList.remove('hidden');}});</script>
+</body></html>`);
 });
 
 // SPA fallback
