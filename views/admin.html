@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — Le Faitout</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf8f4;
+      --bg-alt: #f0ebe3;
+      --text: #2c2a25;
+      --text-light: #6b6560;
+      --primary: #5a7247;
+      --primary-hover: #4a6237;
+      --accent: #c8a96e;
+      --white: #fff;
+      --border: #e2ddd5;
+      --danger: #c0392b;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+    .admin-header { background: var(--primary); color: var(--white); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    .admin-header h1 { font-size: 1.2rem; font-weight: 600; }
+    .admin-header a { color: rgba(255,255,255,0.8); font-size: 0.85rem; }
+    .admin-header a:hover { color: var(--white); }
+    .admin-container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Login */
+    .login-box { max-width: 360px; margin: 5rem auto; background: var(--white); padding: 2.5rem; border-radius: var(--radius); border: 1px solid var(--border); }
+    .login-box h2 { font-size: 1.3rem; margin-bottom: 1.5rem; text-align: center; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.3rem; color: var(--text-light); }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius);
+      font-family: inherit; font-size: 0.9rem; background: var(--bg);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+      outline: none; border-color: var(--primary);
+    }
+    .btn { display: inline-block; padding: 0.6rem 1.4rem; border: none; border-radius: var(--radius); font-family: inherit; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .btn--primary { background: var(--primary); color: var(--white); }
+    .btn--primary:hover { background: var(--primary-hover); }
+    .btn--danger { background: var(--danger); color: var(--white); font-size: 0.8rem; padding: 0.4rem 0.8rem; }
+    .btn--danger:hover { opacity: 0.85; }
+    .btn--small { font-size: 0.8rem; padding: 0.35rem 0.7rem; }
+    .btn--outline { background: none; border: 1px solid var(--border); color: var(--text-light); }
+    .btn--outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn--full { width: 100%; }
+    .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; text-align: center; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 2rem; }
+    .tab { padding: 0.7rem 1.5rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--text-light); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color 0.2s, border-color 0.2s; }
+    .tab--active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Cards */
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+    .card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .card__header h3 { font-size: 1rem; }
+    .card__actions { display: flex; gap: 0.5rem; }
+
+    /* Item list */
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0; border-bottom: 1px solid var(--bg-alt); }
+    .item-row:last-child { border-bottom: none; }
+    .item-name { font-weight: 500; }
+    .item-desc { font-size: 0.8rem; color: var(--text-light); }
+    .item-price { font-weight: 600; color: var(--primary); }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: var(--white); border-radius: var(--radius); padding: 2rem; width: 90%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+    .modal h3 { margin-bottom: 1.5rem; font-size: 1.1rem; }
+    .modal__footer { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1.5rem; }
+
+    .hidden { display: none !important; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius); padding: 1rem; text-align: center;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--primary); background: rgba(90,114,71,0.05); }
+    .upload-prompt { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; color: var(--text-light); font-size: 0.85rem; }
+    .upload-preview { width: 100%; }
+    .upload-preview img { max-width: 100%; max-height: 200px; border-radius: 6px; object-fit: contain; }
+    .upload-zone.uploading { opacity: 0.6; pointer-events: none; }
+
+    .ql-editor { min-height: 150px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; }
+    .ql-toolbar.ql-snow { border-radius: var(--radius) var(--radius) 0 0; border-color: var(--border); background: var(--bg); }
+    .ql-container.ql-snow { border-radius: 0 0 var(--radius) var(--radius); border-color: var(--border); }
+    .ql-editor img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.5rem 0; }
+
+
+    @media (max-width: 600px) {
+      .admin-container { padding: 1rem; }
+      .tabs { overflow-x: auto; }
+      .card { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loginView" class="login-box">
+  <h2>Administration</h2>
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="username">Identifiant</label>
+      <input type="text" id="username" name="username" required autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+    </div>
+    <button type="submit" class="btn btn--primary btn--full">Connexion</button>
+    <p id="loginError" class="error-msg hidden"></p>
+  </form>
+</div>
+
+<div id="adminView" class="hidden">
+  <header class="admin-header">
+    <h1>Le Faitout — Administration</h1>
+    <div>
+      <a href="/" style="margin-right:1rem;">Voir le site</a>
+      <a href="#" id="logoutBtn">Déconnexion</a>
+    </div>
+  </header>
+
+  <div class="admin-container">
+    <div class="tabs">
+      <button class="tab tab--active" data-tab="menu">La Carte</button>
+      <button class="tab" data-tab="news">Actualités</button>
+      <button class="tab" data-tab="settings">Paramètres</button>
+    </div>
+
+    <!-- MENU TAB -->
+    <div id="tab-menu" class="tab-content">
+      <div class="flex-between" style="margin-bottom:1rem;">
+        <h2 style="font-size:1.2rem;">Gestion de la carte</h2>
+        <button class="btn btn--primary btn--small" id="addItemBtn">+ Ajouter un plat</button>
+      </div>
+      <div id="menuList"></div>
+    </div>
+
+    <!-- NEWS TAB -->
+    <div id="tab-news" class="tab-content hidden">
+      <div class="flex-between" style="margin-bottom:1rem;">
+        <h2 style="font-size:1.2rem;">Actualités & événements</h2>
+        <button class="btn btn--primary btn--small" id="addNewsBtn">+ Ajouter</button>
+      </div>
+      <div id="newsList"></div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="tab-settings" class="tab-content hidden">
+      <div class="card">
+        <h3 style="margin-bottom:1rem;">Changer le mot de passe</h3>
+        <form id="passwordForm">
+          <div class="form-group">
+            <label>Mot de passe actuel</label>
+            <input type="password" id="currentPwd" required>
+          </div>
+          <div class="form-group">
+            <label>Nouveau mot de passe</label>
+            <input type="password" id="newPwd" required minlength="4">
+          </div>
+          <button type="submit" class="btn btn--primary">Modifier</button>
+          <p id="pwdMsg" class="error-msg hidden"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal plat -->
+<div class="modal-overlay" id="itemModal">
+  <div class="modal">
+    <h3 id="itemModalTitle">Ajouter un plat</h3>
+    <form id="itemForm">
+      <input type="hidden" id="itemId">
+      <div class="form-group">
+        <label>Catégorie</label>
+        <select id="itemCategory" required></select>
+      </div>
+      <div class="form-group">
+        <label>Nom</label>
+        <input type="text" id="itemName" required>
+      </div>
+      <div class="form-group">
+        <label>Description (optionnel)</label>
+        <input type="text" id="itemDesc">
+      </div>
+      <div class="form-group">
+        <label>Prix (€)</label>
+        <input type="number" id="itemPrice" step="0.5" min="0" required>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn--outline" onclick="closeModal('itemModal')">Annuler</button>
+        <button type="submit" class="btn btn--primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal news -->
+<div class="modal-overlay" id="newsModal">
+  <div class="modal" style="max-width:640px;">
+    <h3 id="newsModalTitle">Ajouter une actualité</h3>
+    <form id="newsForm">
+      <input type="hidden" id="newsId">
+      <div class="form-group">
+        <label>Titre</label>
+        <input type="text" id="newsTitle" required>
+      </div>
+      <div class="form-group">
+        <label>Contenu</label>
+        <div id="newsEditor"></div>
+      </div>
+      <div class="form-group">
+        <label>Image de couverture</label>
+        <input type="hidden" id="newsImage">
+        <div class="upload-zone" id="uploadZone">
+          <div id="uploadPreview" class="upload-preview hidden"></div>
+          <div id="uploadPrompt" class="upload-prompt">
+            <span style="font-size:1.5rem;">📷</span>
+            <span>Cliquez ou glissez une image ici</span>
+          </div>
+          <input type="file" id="uploadInput" accept="image/*" style="display:none;">
+        </div>
+        <button type="button" class="btn btn--outline btn--small" id="removeImageBtn" style="margin-top:0.4rem;display:none;">Supprimer l'image</button>
+      </div>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label>Label (optionnel)</label>
+          <input type="text" id="newsLabel" placeholder="Soirée, Nouveau...">
+        </div>
+        <div class="form-group" style="flex:1;min-width:120px;">
+          <label>Date</label>
+          <input type="date" id="newsDate">
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" class="btn btn--outline" onclick="closeModal('newsModal')">Annuler</button>
+        <button type="submit" class="btn btn--primary">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+const API = '/api';
+let categories = [];
+let quill = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const res = await fetch(`${API}/auth/check`);
+  const { authenticated } = await res.json();
+  if (authenticated) showAdmin();
+});
+
+// Login
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  try {
+    const res = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      })
+    });
+    if (res.ok) { showAdmin(); }
+    else { errEl.textContent = 'Identifiants incorrects'; errEl.classList.remove('hidden'); }
+  } catch { errEl.textContent = 'Erreur de connexion'; errEl.classList.remove('hidden'); }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  await fetch(`${API}/logout`, { method: 'POST' });
+  location.reload();
+});
+
+function showAdmin() {
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('adminView').classList.remove('hidden');
+
+  if (!quill) {
+    quill = new Quill('#newsEditor', {
+      theme: 'snow',
+      placeholder: 'Rédigez le contenu de l\'actualité...',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline'],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link', 'image'],
+          ['clean']
+        ]
+      }
+    });
+
+    quill.getModule('toolbar').addHandler('image', () => {
+      const input = document.createElement('input');
+      input.setAttribute('type', 'file');
+      input.setAttribute('accept', 'image/*');
+      input.click();
+      input.addEventListener('change', async () => {
+        const file = input.files[0];
+        if (!file) return;
+        try {
+          const url = await uploadFile(file);
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range.index, 'image', url);
+          quill.setSelection(range.index + 1);
+        } catch { alert('Erreur lors de l\'upload de l\'image'); }
+      });
+    });
+  }
+
+  loadAdminMenu();
+  loadAdminNews();
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab--active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    tab.classList.add('tab--active');
+    document.getElementById(`tab-${tab.dataset.tab}`).classList.remove('hidden');
+  });
+});
+
+// === MENU ===
+async function loadAdminMenu() {
+  const res = await fetch(`${API}/admin/menu`);
+  const data = await res.json();
+  categories = data.categories;
+  const container = document.getElementById('menuList');
+
+  const sel = document.getElementById('itemCategory');
+  sel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  let html = '';
+  categories.forEach(cat => {
+    const items = data.items.filter(i => i.category_id === cat.id);
+    html += `<div class="card">
+      <div class="card__header"><h3>${esc(cat.name)}</h3></div>
+      ${items.length ? items.map(item => `
+        <div class="item-row">
+          <div>
+            <span class="item-name">${esc(item.name)}</span>
+            ${item.description ? `<span class="item-desc"> — ${esc(item.description)}</span>` : ''}
+            ${!item.visible ? '<span style="color:var(--danger);font-size:0.75rem;"> (masqué)</span>' : ''}
+          </div>
+          <div class="card__actions">
+            <span class="item-price">${item.price}€</span>
+            <button class="btn btn--outline btn--small" onclick="editItem(${item.id})">Modifier</button>
+            <button class="btn btn--danger btn--small" onclick="deleteItem(${item.id})">×</button>
+          </div>
+        </div>
+      `).join('') : '<p style="color:var(--text-light);font-size:0.85rem;">Aucun plat</p>'}
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+document.getElementById('addItemBtn').addEventListener('click', () => {
+  document.getElementById('itemModalTitle').textContent = 'Ajouter un plat';
+  document.getElementById('itemForm').reset();
+  document.getElementById('itemId').value = '';
+  openModal('itemModal');
+});
+
+window.editItem = async (id) => {
+  const res = await fetch(`${API}/admin/menu`);
+  const data = await res.json();
+  const item = data.items.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('itemModalTitle').textContent = 'Modifier le plat';
+  document.getElementById('itemId').value = item.id;
+  document.getElementById('itemCategory').value = item.category_id;
+  document.getElementById('itemName').value = item.name;
+  document.getElementById('itemDesc').value = item.description;
+  document.getElementById('itemPrice').value = item.price;
+  openModal('itemModal');
+};
+
+window.deleteItem = async (id) => {
+  if (!confirm('Supprimer ce plat ?')) return;
+  await fetch(`${API}/admin/menu/item/${id}`, { method: 'DELETE' });
+  loadAdminMenu();
+};
+
+document.getElementById('itemForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('itemId').value;
+  const body = {
+    category_id: parseInt(document.getElementById('itemCategory').value),
+    name: document.getElementById('itemName').value,
+    description: document.getElementById('itemDesc').value,
+    price: parseFloat(document.getElementById('itemPrice').value),
+    visible: true
+  };
+  if (id) {
+    await fetch(`${API}/admin/menu/item/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } else {
+    await fetch(`${API}/admin/menu/item`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  closeModal('itemModal');
+  loadAdminMenu();
+});
+
+// === NEWS ===
+async function loadAdminNews() {
+  const res = await fetch(`${API}/admin/news`);
+  const news = await res.json();
+  const container = document.getElementById('newsList');
+  if (!news.length) {
+    container.innerHTML = '<p style="color:var(--text-light);">Aucune actualité</p>';
+    return;
+  }
+  container.innerHTML = news.map(n => `
+    <div class="card">
+      <div class="card__header">
+        <h3>${esc(n.title)} ${n.label ? `<span style="color:var(--primary);font-size:0.8rem;">[${esc(n.label)}]</span>` : ''}</h3>
+        <div class="card__actions">
+          ${!n.visible ? '<span style="color:var(--danger);font-size:0.75rem;">masqué</span>' : ''}
+          <button class="btn btn--outline btn--small" onclick="editNews(${n.id})">Modifier</button>
+          <button class="btn btn--danger btn--small" onclick="deleteNews(${n.id})">×</button>
+        </div>
+      </div>
+      <div style="font-size:0.9rem;color:var(--text-light);line-height:1.5;">${n.content}</div>
+      ${n.image ? `<img src="${esc(n.image)}" style="max-width:120px;border-radius:6px;margin-top:0.5rem;">` : ''}
+      <p style="font-size:0.8rem;color:var(--text-light);margin-top:0.5rem;">${n.date}</p>
+    </div>
+  `).join('');
+}
+
+document.getElementById('addNewsBtn').addEventListener('click', () => {
+  document.getElementById('newsModalTitle').textContent = 'Ajouter une actualité';
+  document.getElementById('newsForm').reset();
+  document.getElementById('newsId').value = '';
+  document.getElementById('newsDate').value = new Date().toISOString().split('T')[0];
+  quill.root.innerHTML = '';
+  clearImagePreview();
+  openModal('newsModal');
+});
+
+window.editNews = async (id) => {
+  const res = await fetch(`${API}/admin/news`);
+  const list = await res.json();
+  const n = list.find(x => x.id === id);
+  if (!n) return;
+  document.getElementById('newsModalTitle').textContent = 'Modifier l\'actualité';
+  document.getElementById('newsId').value = n.id;
+  document.getElementById('newsTitle').value = n.title;
+  quill.root.innerHTML = n.content || '';
+  document.getElementById('newsLabel').value = n.label;
+  document.getElementById('newsDate').value = n.date;
+  if (n.image) { showImagePreview(n.image); } else { clearImagePreview(); }
+  openModal('newsModal');
+};
+
+window.deleteNews = async (id) => {
+  if (!confirm('Supprimer cette actualité ?')) return;
+  await fetch(`${API}/admin/news/${id}`, { method: 'DELETE' });
+  loadAdminNews();
+};
+
+document.getElementById('newsForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('newsId').value;
+  const content = quill.root.innerHTML;
+  if (quill.getText().trim().length === 0) {
+    alert('Le contenu ne peut pas être vide.');
+    return;
+  }
+  const body = {
+    title: document.getElementById('newsTitle').value,
+    content,
+    image: document.getElementById('newsImage').value,
+    label: document.getElementById('newsLabel').value,
+    date: document.getElementById('newsDate').value,
+    visible: true
+  };
+  if (id) {
+    await fetch(`${API}/admin/news/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } else {
+    await fetch(`${API}/admin/news`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+  closeModal('newsModal');
+  loadAdminNews();
+});
+
+// Password
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('pwdMsg');
+  const res = await fetch(`${API}/admin/password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      current: document.getElementById('currentPwd').value,
+      newPassword: document.getElementById('newPwd').value
+    })
+  });
+  msgEl.classList.remove('hidden');
+  if (res.ok) {
+    msgEl.style.color = 'var(--primary)';
+    msgEl.textContent = 'Mot de passe modifié';
+    document.getElementById('passwordForm').reset();
+  } else {
+    msgEl.style.color = 'var(--danger)';
+    const data = await res.json();
+    msgEl.textContent = data.error || 'Erreur';
+  }
+});
+
+// === UPLOAD ===
+async function uploadFile(file) {
+  const form = new FormData();
+  form.append('image', file);
+  const res = await fetch(`${API}/admin/upload`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('Upload échoué');
+  const data = await res.json();
+  return data.url;
+}
+
+function showImagePreview(url) {
+  const preview = document.getElementById('uploadPreview');
+  const prompt = document.getElementById('uploadPrompt');
+  const removeBtn = document.getElementById('removeImageBtn');
+  preview.innerHTML = `<img src="${url}" alt="Aperçu">`;
+  preview.classList.remove('hidden');
+  prompt.classList.add('hidden');
+  removeBtn.style.display = '';
+  document.getElementById('newsImage').value = url;
+}
+
+function clearImagePreview() {
+  const preview = document.getElementById('uploadPreview');
+  const prompt = document.getElementById('uploadPrompt');
+  const removeBtn = document.getElementById('removeImageBtn');
+  preview.innerHTML = '';
+  preview.classList.add('hidden');
+  prompt.classList.remove('hidden');
+  removeBtn.style.display = 'none';
+  document.getElementById('newsImage').value = '';
+}
+
+const uploadZone = document.getElementById('uploadZone');
+const uploadInput = document.getElementById('uploadInput');
+
+uploadZone.addEventListener('click', () => uploadInput.click());
+
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    uploadZone.classList.add('uploading');
+    try {
+      const url = await uploadFile(file);
+      showImagePreview(url);
+    } catch { alert('Erreur lors de l\'upload'); }
+    uploadZone.classList.remove('uploading');
+  }
+});
+
+uploadInput.addEventListener('change', async () => {
+  const file = uploadInput.files[0];
+  if (!file) return;
+  uploadZone.classList.add('uploading');
+  try {
+    const url = await uploadFile(file);
+    showImagePreview(url);
+  } catch { alert('Erreur lors de l\'upload'); }
+  uploadZone.classList.remove('uploading');
+  uploadInput.value = '';
+});
+
+document.getElementById('removeImageBtn').addEventListener('click', clearImagePreview);
+
+// Modal helpers
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+window.closeModal = closeModal;
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+function esc(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "le-faitout-site",
+  "version": "1.0.0",
+  "description": "Site vitrine - Le Faitout de Canaules-et-Argentières",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^8.3.1",
+    "express-session": "^1.18.0",
+    "helmet": "^8.1.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
