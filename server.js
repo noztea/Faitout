@@ -8,12 +8,16 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
-const db = new Database(path.join(__dirname, 'data', 'faitout.db'));
+const persistDir = process.env.PERSIST_DIR || path.join(__dirname, 'data');
+const db = new Database(path.join(persistDir, 'faitout.db'));
 db.pragma('journal_mode = WAL');
 
-const uploadDir = path.join(__dirname, 'public', 'images', 'uploads');
+const uploadDir = process.env.PERSIST_DIR
+  ? path.join(process.env.PERSIST_DIR, 'uploads')
+  : path.join(__dirname, 'public', 'images', 'uploads');
 const storage = multer.diskStorage({
   destination: uploadDir,
   filename: (req, file, cb) => {
@@ -34,6 +38,11 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+if (process.env.PERSIST_DIR) {
+  const fs = require('fs');
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  app.use('/images/uploads', express.static(uploadDir));
+}
 app.use(session({
   secret: process.env.SESSION_SECRET || 'faitout-secret-change-me',
   resave: false,
